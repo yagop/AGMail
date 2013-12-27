@@ -11,8 +11,9 @@ import getpass
 
 courses = []
 alumnos = []
-roleid = '8';
+roleid = '8' #Default role for students
 emails = []
+todos = False
 
 class Course:
 	def __init__(self, name, link, number):
@@ -30,9 +31,10 @@ def process_main(html):
 		print "No courses found. ¿Login error?"
 		exit()
 
-	find = busqueda.find_all('a')[1:]
+	find = busqueda.find_all('a')[1:] # LOL clean this also
 
 	for line in find:
+		#TODO clean this code
 		# First is NoneType 
 		link = line.get('href')
 		name = line.get_text()
@@ -42,29 +44,50 @@ def process_main(html):
 			course = Course(name, link, number)
 			courses.append(course)
 
+def ask_user():
+	yes = set(['si','s', ''])
+	no = set(['no','n'])
+
+	choice = raw_input().lower()
+	if choice in yes:
+	   return True
+	elif choice in no:
+	   return False
+	else:
+	   sys.stdout.write("Por favor, responde 'si' o 'no'") 
+
 def process_courses(opener):
 	global courses
 	global mfiles
 	for curso in courses:
-		print curso.name
-		#resp = urllib2.urlopen(urllib2.Request(curso.link))
-		#contents = resp.read()
-		#context = re.search(r'context-\d+',contents).group()
-		#context_id = re.search(r'\d+',context).group()
 
-		fullurl='https://aulaglobal.uc3m.es/user/index.php?roleid='+roleid+'&id='+curso.number+'&mode=1&search=&perpage=5000'
-		resp = urllib2.urlopen(urllib2.Request(fullurl))
-		contents = resp.read()
+		if not todos:
+			print ("Desea anadir los alumnos de "+curso.name+"? [S/n]") #La interrogacion primera da problemas 
+			answer = ask_user()
+		else:
+			print ("Analizando "+curso.name)
+			answer = True 
 
-		emails_f = re.findall(r'[\w\.-]+@[\w\.-]+', contents) 
-   
-		for email in emails_f:
-			if email not in emails:
-				emails.append(email)
+		if answer:
+			fullurl='https://aulaglobal.uc3m.es/user/index.php?roleid='+roleid+'&id='+curso.number+'&mode=1&search=&perpage=5000'
+			resp = urllib2.urlopen(urllib2.Request(fullurl))
+			contents = resp.read()
+
+			emails_f = re.findall(r'[\w\.-]+@[\w\.-]+', contents) 
+	   
+			for email in emails_f:
+				if email not in emails:
+					emails.append(email)
 
 
 def process_emails():
+	print 'Se han econtrado '+str(len(emails))+' emails no repetidos'
 	print ', '.join(emails)
+	print ("Desea guardarlos en emails.txt ? [S/n]")
+	if ask_user():
+		f = open('emails.txt', 'w')
+		for email in emails:
+  			f.write("%s, " % email)
 
 def login_moodle (user, passwd, opener):
 	
@@ -83,13 +106,14 @@ def login_moodle (user, passwd, opener):
 	return contents
    
 def main():
-	parser = argparse.ArgumentParser(description='Aula Global from  command line')
-	parser.add_argument('-u', metavar='Group', action="store", required=False)
+	parser = argparse.ArgumentParser(description='AGMail')
+	parser.add_argument("-all", "--all", help="Analiza todos los cursos sin preguntar", action="store_true")
 	args = parser.parse_args()
 
-	if args.u != None:
-		roleid = args.u
-	
+	if args.all == True:
+		global todos
+		todos = True
+
 	cj = cookielib.CookieJar()
 	opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
 
@@ -104,7 +128,7 @@ def main():
 	process_courses(opener)
 	process_emails()
 	
-
+#TODO clean this
 if __name__ == '__main__':
         try:
             main()
